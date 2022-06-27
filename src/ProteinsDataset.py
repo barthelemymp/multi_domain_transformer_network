@@ -81,6 +81,7 @@ def perdomain_collate(batch):
     
     print("tensor")
     out = None
+    elem = batch[0]
     if torch.utils.data.get_worker_info() is not None:
         # If we're in a background process, concatenate directly into a
         # shared memory tensor to avoid an extra copy
@@ -108,7 +109,7 @@ def network_collate(batch):
     transposed = zip(*batch)
     return [perdomain_collate(samples) for samples in transposed]
 
-    raise TypeError(default_collate_err_msg_format.format(elem_type))
+
 
 
 
@@ -165,10 +166,9 @@ class ProteinMSA(torch.utils.data.Dataset):
         if onehot:
             train_msa = torch.nn.functional.one_hot(
                 torch.from_numpy(seq_nat).long(), num_classes=self.q)
-            if flatten:
-                self.sequences = train_msa.view(train_msa.shape[0], -1).float()
-            else:
-                self.sequences = train_msa.float()
+                # self.sequences = train_msa.view(train_msa.shape[0], -1).float()
+
+            self.sequences = train_msa.float()
         else:
             self.sequences = torch.from_numpy(seq_nat).long()
 
@@ -224,10 +224,10 @@ class ProteinMSA(torch.utils.data.Dataset):
             # if self.get_fitness != None:
             #     self.fitness = self.fitness.to(device, non_blocking=True)
 
-    def pad(self, maxlen, padsymbol="<pad>"):
-        # self.SymbolMap["<pad>"] = self.q+1
-        # self.q += 1
-        # TO DO
+    # def pad(self, maxlen, padsymbol="<pad>"):
+    #     # self.SymbolMap["<pad>"] = self.q+1
+    #     # self.q += 1
+    #     # TO DO
 
     def terminate(self, sos="<sos>", eos="<eos>"):
         self.init_token = sos
@@ -311,8 +311,8 @@ class ProteinNetworkDataset(torch.utils.data.Dataset):
         self.DomainProfile = self.idx_in_clique != -1
         self.DomainProfile = self.DomainProfile.numpy()
         self.DomainProfileMatrix = (self.DomainProfile[:, None, :] != self.DomainProfile).sum(2)
-        Z = hierarchy.ward(DomainProfileMatrix)
-        self.proteinOrdering = hierarchy.leaves_list(hierarchy.optimal_leaf_ordering(Z, X))
+        Z = hierarchy.ward(self.DomainProfileMatrix)
+        self.proteinOrdering = hierarchy.leaves_list(hierarchy.optimal_leaf_ordering(Z, self.DomainProfileMatrix))
     
     def __len__(self):
         return len(self.uniqueProt)
@@ -410,62 +410,62 @@ class ProteinNetworkDataset(torch.utils.data.Dataset):
     #             pds.outputsize = self.outputsize
 
 
-class BucketIterator(Iterator):
-    """Defines an iterator that batches examples of similar lengths together.
-    Minimizes amount of padding needed while producing freshly shuffled
-    batches for each new epoch. See pool for the bucketing procedure used.
-    """
+# class BucketIterator(Iterator):
+#     """Defines an iterator that batches examples of similar lengths together.
+#     Minimizes amount of padding needed while producing freshly shuffled
+#     batches for each new epoch. See pool for the bucketing procedure used.
+#     """
 
-    def create_batches(self):
-        if self.sort:
-            self.batches = batch(self.data(), self.batch_size,
-                                 self.batch_size_fn)
-        else:
-            self.batches = pool(self.data(), self.batch_size,
-                                self.sort_key, self.batch_size_fn,
-                                random_shuffler=self.random_shuffler,
-                                shuffle=self.shuffle,
-                                sort_within_batch=self.sort_within_batch)
-
-
-def batch(data, batch_size, batch_size_fn=None):
-    """Yield elements from data in chunks of batch_size."""
-    if batch_size_fn is None:
-        def batch_size_fn(new, count, sofar):
-            return count
-    minibatch, size_so_far = [], 0
-    for ex in data:
-        minibatch.append(ex)
-        size_so_far = batch_size_fn(ex, len(minibatch), size_so_far)
-        if size_so_far == batch_size:
-            yield minibatch
-            minibatch, size_so_far = [], 0
-        elif size_so_far > batch_size:
-            yield minibatch[:-1]
-            minibatch, size_so_far = minibatch[-1:], batch_size_fn(ex, 1, 0)
-    if minibatch:
-        yield minibatch
+#     def create_batches(self):
+#         if self.sort:
+#             self.batches = batch(self.data(), self.batch_size,
+#                                  self.batch_size_fn)
+#         else:
+#             self.batches = pool(self.data(), self.batch_size,
+#                                 self.sort_key, self.batch_size_fn,
+#                                 random_shuffler=self.random_shuffler,
+#                                 shuffle=self.shuffle,
+#                                 sort_within_batch=self.sort_within_batch)
 
 
-def pool(data, batch_size, key, batch_size_fn=lambda new, count, sofar: count,
-         random_shuffler=None, shuffle=False, sort_within_batch=False):
-    """Sort within buckets, then batch, then shuffle batches.
-    Partitions data into chunks of size 100*batch_size, sorts examples within
-    each chunk using sort_key, then batch these examples and shuffle the
-    batches.
-    """
-    if random_shuffler is None:
-        random_shuffler = random.shuffle
-    for p in batch(data, batch_size * 100, batch_size_fn):
-        p_batch = batch(sorted(p, key=key), batch_size, batch_size_fn) \
-            if sort_within_batch \
-            else batch(p, batch_size, batch_size_fn)
-        if shuffle:
-            for b in random_shuffler(list(p_batch)):
-                yield b
-        else:
-            for b in list(p_batch):
-                yield b
+# def batch(data, batch_size, batch_size_fn=None):
+#     """Yield elements from data in chunks of batch_size."""
+#     if batch_size_fn is None:
+#         def batch_size_fn(new, count, sofar):
+#             return count
+#     minibatch, size_so_far = [], 0
+#     for ex in data:
+#         minibatch.append(ex)
+#         size_so_far = batch_size_fn(ex, len(minibatch), size_so_far)
+#         if size_so_far == batch_size:
+#             yield minibatch
+#             minibatch, size_so_far = [], 0
+#         elif size_so_far > batch_size:
+#             yield minibatch[:-1]
+#             minibatch, size_so_far = minibatch[-1:], batch_size_fn(ex, 1, 0)
+#     if minibatch:
+#         yield minibatch
+
+
+# def pool(data, batch_size, key, batch_size_fn=lambda new, count, sofar: count,
+#          random_shuffler=None, shuffle=False, sort_within_batch=False):
+#     """Sort within buckets, then batch, then shuffle batches.
+#     Partitions data into chunks of size 100*batch_size, sorts examples within
+#     each chunk using sort_key, then batch these examples and shuffle the
+#     batches.
+#     """
+#     if random_shuffler is None:
+#         random_shuffler = random.shuffle
+#     for p in batch(data, batch_size * 100, batch_size_fn):
+#         p_batch = batch(sorted(p, key=key), batch_size, batch_size_fn) \
+#             if sort_within_batch \
+#             else batch(p, batch_size, batch_size_fn)
+#         if shuffle:
+#             for b in random_shuffler(list(p_batch)):
+#                 yield b
+#         else:
+#             for b in list(p_batch):
+#                 yield b
 
 
 def default_collate(batch):
@@ -517,257 +517,257 @@ def default_collate(batch):
     raise TypeError(default_collate_err_msg_format.format(elem_type))
 
 
-def getUnique(tensor):
-    inverseMapping = torch.unique(tensor, dim=1, return_inverse=True)[1]
-    dic = defaultdict(lambda: 0)
-    BooleanKept = torch.tensor([False] * tensor.shape[1])
-    for i in range(tensor.shape[1]):
-        da = int(inverseMapping[i])
-        if dic[da] == 0:
-            BooleanKept[i] = True
-        dic[da] += 1
-    return tensor[:, BooleanKept, :], BooleanKept
+# def getUnique(tensor):
+#     inverseMapping = torch.unique(tensor, dim=1, return_inverse=True)[1]
+#     dic = defaultdict(lambda: 0)
+#     BooleanKept = torch.tensor([False] * tensor.shape[1])
+#     for i in range(tensor.shape[1]):
+#         da = int(inverseMapping[i])
+#         if dic[da] == 0:
+#             BooleanKept[i] = True
+#         dic[da] += 1
+#     return tensor[:, BooleanKept, :], BooleanKept
 
 
-class ProteinTranslationDataset(torch.utils.data.Dataset):
-    def __init__(self, csvPath,  mapstring="-ACDEFGHIKLMNPQRSTVWY", transform=None, device=None, batch_first=False, Unalign=False, filteringOption='none', returnIndex=False, onehot=True, GapTheExtra=True):
-        """
-        Args:
-            csv_file (string): Path to the csv file with annotations.
-            root_dir (string): Directory with all the images.
-            transform (callable, optional): Optional transform to be applied
-                on a sample.
-        """
-        df = pd.read_csv(csvPath, header=None)
-        self.q = len(mapstring)
-        self.SymbolMap = dict([(mapstring[i], i)
-                              for i in range(len(mapstring))])
-        self.init_token = "<sos>"
-        self.eos_token = "<eos>"
-        self.pad_token = "<pad>"
-        self.unk = "X"
-        self.GapTheExtra = GapTheExtra
-        self.padIndex = -100
-        if GapTheExtra:
-            self.init_token = "-"
-            self.eos_token = "-"
-            self.pad_token = "-"
-            self.unk = "-"
-        self.mapstring = mapstring
-        self.onehot = onehot
-        self.SymbolMap = dict([(mapstring[i], i)
-                              for i in range(len(mapstring))])
-        self.SymbolMap[self.unk] = len(mapstring)
-        if GapTheExtra == False:
-            self.SymbolMap[self.init_token] = len(mapstring)+1
-            self.SymbolMap[self.eos_token] = len(mapstring)+2
-            self.SymbolMap[self.pad_token] = len(mapstring)+3
-            self.padIndex = len(mapstring)+3
-        else:
-            self.SymbolMap[self.init_token] = 0
-            self.SymbolMap[self.eos_token] = 0
-            self.SymbolMap[self.pad_token] = 0
+# class ProteinTranslationDataset(torch.utils.data.Dataset):
+#     def __init__(self, csvPath,  mapstring="-ACDEFGHIKLMNPQRSTVWY", transform=None, device=None, batch_first=False, Unalign=False, filteringOption='none', returnIndex=False, onehot=True, GapTheExtra=True):
+#         """
+#         Args:
+#             csv_file (string): Path to the csv file with annotations.
+#             root_dir (string): Directory with all the images.
+#             transform (callable, optional): Optional transform to be applied
+#                 on a sample.
+#         """
+#         df = pd.read_csv(csvPath, header=None)
+#         self.q = len(mapstring)
+#         self.SymbolMap = dict([(mapstring[i], i)
+#                               for i in range(len(mapstring))])
+#         self.init_token = "<sos>"
+#         self.eos_token = "<eos>"
+#         self.pad_token = "<pad>"
+#         self.unk = "X"
+#         self.GapTheExtra = GapTheExtra
+#         self.padIndex = -100
+#         if GapTheExtra:
+#             self.init_token = "-"
+#             self.eos_token = "-"
+#             self.pad_token = "-"
+#             self.unk = "-"
+#         self.mapstring = mapstring
+#         self.onehot = onehot
+#         self.SymbolMap = dict([(mapstring[i], i)
+#                               for i in range(len(mapstring))])
+#         self.SymbolMap[self.unk] = len(mapstring)
+#         if GapTheExtra == False:
+#             self.SymbolMap[self.init_token] = len(mapstring)+1
+#             self.SymbolMap[self.eos_token] = len(mapstring)+2
+#             self.SymbolMap[self.pad_token] = len(mapstring)+3
+#             self.padIndex = len(mapstring)+3
+#         else:
+#             self.SymbolMap[self.init_token] = 0
+#             self.SymbolMap[self.eos_token] = 0
+#             self.SymbolMap[self.pad_token] = 0
 
-        self.inputsize = len(df.iloc[1][0].split(" "))+2
-        self.outputsize = len(df.iloc[1][1].split(" "))+2
-        self.gap = "-"
-        self.tensorIN = torch.zeros(
-            self.inputsize, len(df), len(self.SymbolMap))
-        self.tensorOUT = torch.zeros(
-            self.outputsize, len(df), len(self.SymbolMap))
-        self.device = device
-        self.transform = transform
-        self.batch_first = batch_first
-        self.filteringOption = filteringOption
-        self.returnIndex = returnIndex
-        if Unalign == False:
-            print("keeping the gap")
-            for i in range(len(df)):
-                inp = [self.SymbolMap[self.init_token]]+[self.SymbolMap[k]
-                                                         for k in df[0][i].split(" ")]+[self.SymbolMap[self.eos_token]]
-                out = [self.SymbolMap[self.init_token]]+[self.SymbolMap[k]
-                                                         for k in df[1][i].split(" ")]+[self.SymbolMap[self.eos_token]]
-                self.tensorIN[:, i, :] = torch.nn.functional.one_hot(
-                    torch.tensor(inp), num_classes=len(self.SymbolMap))
-                self.tensorOUT[:, i, :] = torch.nn.functional.one_hot(
-                    torch.tensor(out), num_classes=len(self.SymbolMap))
-        else:
-            print("Unaligning and Padding")
-            for i in range(len(df)):
-                inp = [self.SymbolMap[self.init_token]]+[self.SymbolMap[k]
-                                                         for k in df[0][i].split(" ") if k != self.gap]+[self.SymbolMap[self.eos_token]]
-                out = [self.SymbolMap[self.init_token]]+[self.SymbolMap[k]
-                                                         for k in df[1][i].split(" ") if k != self.gap]+[self.SymbolMap[self.eos_token]]
-                inp += [self.SymbolMap[self.pad_token]] * \
-                    (self.inputsize - len(inp))
-                out += [self.SymbolMap[self.pad_token]] * \
-                    (self.outputsize - len(out))
-                self.tensorIN[:, i, :] = torch.nn.functional.one_hot(
-                    torch.tensor(inp), num_classes=len(self.SymbolMap))
-                self.tensorOUT[:, i, :] = torch.nn.functional.one_hot(
-                    torch.tensor(out), num_classes=len(self.SymbolMap))
+#         self.inputsize = len(df.iloc[1][0].split(" "))+2
+#         self.outputsize = len(df.iloc[1][1].split(" "))+2
+#         self.gap = "-"
+#         self.tensorIN = torch.zeros(
+#             self.inputsize, len(df), len(self.SymbolMap))
+#         self.tensorOUT = torch.zeros(
+#             self.outputsize, len(df), len(self.SymbolMap))
+#         self.device = device
+#         self.transform = transform
+#         self.batch_first = batch_first
+#         self.filteringOption = filteringOption
+#         self.returnIndex = returnIndex
+#         if Unalign == False:
+#             print("keeping the gap")
+#             for i in range(len(df)):
+#                 inp = [self.SymbolMap[self.init_token]]+[self.SymbolMap[k]
+#                                                          for k in df[0][i].split(" ")]+[self.SymbolMap[self.eos_token]]
+#                 out = [self.SymbolMap[self.init_token]]+[self.SymbolMap[k]
+#                                                          for k in df[1][i].split(" ")]+[self.SymbolMap[self.eos_token]]
+#                 self.tensorIN[:, i, :] = torch.nn.functional.one_hot(
+#                     torch.tensor(inp), num_classes=len(self.SymbolMap))
+#                 self.tensorOUT[:, i, :] = torch.nn.functional.one_hot(
+#                     torch.tensor(out), num_classes=len(self.SymbolMap))
+#         else:
+#             print("Unaligning and Padding")
+#             for i in range(len(df)):
+#                 inp = [self.SymbolMap[self.init_token]]+[self.SymbolMap[k]
+#                                                          for k in df[0][i].split(" ") if k != self.gap]+[self.SymbolMap[self.eos_token]]
+#                 out = [self.SymbolMap[self.init_token]]+[self.SymbolMap[k]
+#                                                          for k in df[1][i].split(" ") if k != self.gap]+[self.SymbolMap[self.eos_token]]
+#                 inp += [self.SymbolMap[self.pad_token]] * \
+#                     (self.inputsize - len(inp))
+#                 out += [self.SymbolMap[self.pad_token]] * \
+#                     (self.outputsize - len(out))
+#                 self.tensorIN[:, i, :] = torch.nn.functional.one_hot(
+#                     torch.tensor(inp), num_classes=len(self.SymbolMap))
+#                 self.tensorOUT[:, i, :] = torch.nn.functional.one_hot(
+#                     torch.tensor(out), num_classes=len(self.SymbolMap))
 
-        if filteringOption == "in":
-            a = getUnique(self.tensorIN)[1]
-            self.tensorIN = self.tensorIN[:, a, :]
-            self.tensorOUT = self.tensorOUT[:, a, :]
-            print("filtering the redundancy of input proteins")
-        elif filteringOption == "out":
-            b = getUnique(self.tensorOUT)[1]
-            self.tensorIN = self.tensorIN[:, b, :]
-            self.tensorOUT = self.tensorOUT[:, b, :]
-            print("filtering the redundancy of output proteins")
-        elif filteringOption == "and":
-            a = getUnique(self.tensorIN)[1]
-            b = getUnique(self.tensorOUT)[1]
-            self.tensorIN = self.tensorIN[:, a*b, :]
-            self.tensorOUT = self.tensorOUT[:, a*b, :]
-            print("filtering the redundancy of input AND output proteins")
-        elif filteringOption == "or":
-            a = getUnique(self.tensorIN)[1]
-            b = getUnique(self.tensorOUT)[1]
-            self.tensorIN = self.tensorIN[:, a+b, :]
-            self.tensorOUT = self.tensorOUT[:, a+b, :]
-            print("filtering the redundancy of input OR output proteins")
-        else:
-            print("No filtering of redundancy")
+#         if filteringOption == "in":
+#             a = getUnique(self.tensorIN)[1]
+#             self.tensorIN = self.tensorIN[:, a, :]
+#             self.tensorOUT = self.tensorOUT[:, a, :]
+#             print("filtering the redundancy of input proteins")
+#         elif filteringOption == "out":
+#             b = getUnique(self.tensorOUT)[1]
+#             self.tensorIN = self.tensorIN[:, b, :]
+#             self.tensorOUT = self.tensorOUT[:, b, :]
+#             print("filtering the redundancy of output proteins")
+#         elif filteringOption == "and":
+#             a = getUnique(self.tensorIN)[1]
+#             b = getUnique(self.tensorOUT)[1]
+#             self.tensorIN = self.tensorIN[:, a*b, :]
+#             self.tensorOUT = self.tensorOUT[:, a*b, :]
+#             print("filtering the redundancy of input AND output proteins")
+#         elif filteringOption == "or":
+#             a = getUnique(self.tensorIN)[1]
+#             b = getUnique(self.tensorOUT)[1]
+#             self.tensorIN = self.tensorIN[:, a+b, :]
+#             self.tensorOUT = self.tensorOUT[:, a+b, :]
+#             print("filtering the redundancy of input OR output proteins")
+#         else:
+#             print("No filtering of redundancy")
 
-        if batch_first:
-            self.tensorIN = torch.transpose(self.tensorIN, 0, 1)
-            self.tensorOUT = torch.transpose(self.tensorOUT, 0, 1)
+#         if batch_first:
+#             self.tensorIN = torch.transpose(self.tensorIN, 0, 1)
+#             self.tensorOUT = torch.transpose(self.tensorOUT, 0, 1)
 
-        if onehot == False:
-            self.tensorIN = self.tensorIN.max(dim=2)[1]
-            self.tensorOUT = self.tensorOUT.max(dim=2)[1]
+#         if onehot == False:
+#             self.tensorIN = self.tensorIN.max(dim=2)[1]
+#             self.tensorOUT = self.tensorOUT.max(dim=2)[1]
 
-        if device != None:
-            self.tensorIN = self.tensorIN.to(device, non_blocking=True)
-            self.tensorOUT = self.tensorOUT.to(device, non_blocking=True)
+#         if device != None:
+#             self.tensorIN = self.tensorIN.to(device, non_blocking=True)
+#             self.tensorOUT = self.tensorOUT.to(device, non_blocking=True)
 
-    def __len__(self):
-        if self.batch_first:
-            return self.tensorIN.shape[0]
-        else:
-            return self.tensorIN.shape[1]
+#     def __len__(self):
+#         if self.batch_first:
+#             return self.tensorIN.shape[0]
+#         else:
+#             return self.tensorIN.shape[1]
 
-    def __getitem__(self, idx):
-        if torch.is_tensor(idx):
-            idx = idx.tolist()
-        if self.batch_first:
-            if self.returnIndex:
-                return self.tensorIN[idx, :], self.tensorOUT[idx, :], idx
-            else:
-                return self.tensorIN[idx, :], self.tensorOUT[idx, :]
-        else:
-            if self.returnIndex:
-                return self.tensorIN[:, idx], self.tensorOUT[:, idx], idx
-            else:
-                return self.tensorIN[:, idx], self.tensorOUT[:, idx]
+#     def __getitem__(self, idx):
+#         if torch.is_tensor(idx):
+#             idx = idx.tolist()
+#         if self.batch_first:
+#             if self.returnIndex:
+#                 return self.tensorIN[idx, :], self.tensorOUT[idx, :], idx
+#             else:
+#                 return self.tensorIN[idx, :], self.tensorOUT[idx, :]
+#         else:
+#             if self.returnIndex:
+#                 return self.tensorIN[:, idx], self.tensorOUT[:, idx], idx
+#             else:
+#                 return self.tensorIN[:, idx], self.tensorOUT[:, idx]
 
-    def to(self, device):
-        if device != None:
-            self.tensorIN = self.tensorIN.to(device, non_blocking=True)
-            self.tensorOUT = self.tensorOUT.to(device, non_blocking=True)
+#     def to(self, device):
+#         if device != None:
+#             self.tensorIN = self.tensorIN.to(device, non_blocking=True)
+#             self.tensorOUT = self.tensorOUT.to(device, non_blocking=True)
 
-    def shufflePairs(self,):
-        self.tensorOUT = self.tensorOUT[:,
-                                        torch.randperm(self.tensorOUT.size()[1])]
+#     def shufflePairs(self,):
+#         self.tensorOUT = self.tensorOUT[:,
+#                                         torch.randperm(self.tensorOUT.size()[1])]
 
-    def downsample(self, nsamples):
-        idxs = torch.randperm(self.tensorOUT.size()[1])[:nsamples]
-        self.tensorIN = self.tensorIN[:, idxs]
-        self.tensorOUT = self.tensorOUT[:, idxs]
+#     def downsample(self, nsamples):
+#         idxs = torch.randperm(self.tensorOUT.size()[1])[:nsamples]
+#         self.tensorIN = self.tensorIN[:, idxs]
+#         self.tensorOUT = self.tensorOUT[:, idxs]
 
-    def join(self, pds):
-        if self.device != pds.device:
-            pds.tensorIN = pds.tensorIN.to(self.device, non_blocking=True)
-            pds.tensorOUT = pds.tensorOUT.to(self.device, non_blocking=True)
-        if self.onehot:
-            if self.inputsize < pds.inputsize:
-                dif = pds.inputsize - self.inputsize
-                padIN = torch.zeros(dif, len(self), len(self.SymbolMap)).to(
-                    self.device, non_blocking=True)
-                for i in range(len(self)):
-                    inp = [self.SymbolMap[self.pad_token]]*dif
-                    padIN[:, i, :] = torch.nn.functional.one_hot(
-                        torch.tensor(inp), num_classes=len(self.SymbolMap))
-                self.tensorIN = torch.cat(
-                    [torch.cat([self.tensorIN, padIN], dim=0), pds.tensorIN], dim=1)
-                self.inputsize = pds.inputsize
-            elif self.inputsize > pds.inputsize:
-                dif = self.inputsize - pds.inputsize
-                padIN = torch.zeros(dif, len(pds), len(self.SymbolMap)).to(
-                    self.device, non_blocking=True)
-                for i in range(len(pds)):
-                    inp = [self.SymbolMap[self.pad_token]] * dif
-                    padIN[:, i, :] = torch.nn.functional.one_hot(
-                        torch.tensor(inp), num_classes=len(self.SymbolMap))
-                self.tensorIN = torch.cat(
-                    [self.tensorIN, torch.cat([pds.tensorIN, padIN], dim=0)], dim=1)
-                pds.inputsize = self.inputsize
-            if self.outputsize < pds.outputsize:
-                dif = pds.outputsize - self.outputsize
-                padOUT = torch.zeros(dif, self.tensorOUT.shape[1], len(
-                    self.SymbolMap)).to(self.device, non_blocking=True)
-                for i in range(self.tensorOUT.shape[1]):
-                    inp = [self.SymbolMap[self.pad_token]]*dif
-                    padOUT[:, i, :] = torch.nn.functional.one_hot(
-                        torch.tensor(inp), num_classes=len(self.SymbolMap))
-                self.tensorOUT = torch.cat(
-                    [torch.cat([self.tensorOUT, padOUT], dim=0), pds.tensorOUT], dim=1)
-                self.outputsize = pds.outputsize
-            elif self.outputsize > pds.outputsize:
-                dif = self.outputsize - pds.outputsize
-                padOUT = torch.zeros(dif, pds.tensorOUT.shape[1], len(
-                    self.SymbolMap)).to(self.device, non_blocking=True)
-                for i in range(pds.tensorOUT.shape[1]):
-                    inp = [self.SymbolMap[self.pad_token]] * dif
-                    padOUT[:, i, :] = torch.nn.functional.one_hot(
-                        torch.tensor(inp), num_classes=len(self.SymbolMap))
-                self.tensorOUT = torch.cat(
-                    [self.tensorOUT, torch.cat([pds.tensorOUT, padOUT], dim=0)], dim=1)
-                pds.outputsize = self.outputsize
-        else:
-            if self.inputsize < pds.inputsize:
-                dif = pds.inputsize - self.inputsize
-                padIN = torch.zeros(dif, len(self)).to(
-                    self.device, non_blocking=True)
-                for i in range(len(self)):
-                    inp = [self.SymbolMap[self.pad_token]]*dif
-                    padIN[:, i] = torch.tensor(inp)
-                self.tensorIN = torch.cat(
-                    [torch.cat([self.tensorIN, padIN], dim=0), pds.tensorIN], dim=1)
-                self.inputsize = pds.inputsize
-            elif self.inputsize > pds.inputsize:
-                dif = self.inputsize - pds.inputsize
-                padIN = torch.zeros(dif, len(pds)).to(
-                    self.device, non_blocking=True)
-                for i in range(len(pds)):
-                    inp = [self.SymbolMap[self.pad_token]] * dif
-                    padIN[:, i] = torch.tensor(inp)
-                self.tensorIN = torch.cat(
-                    [self.tensorIN, torch.cat([pds.tensorIN, padIN], dim=0)], dim=1)
-                pds.inputsize = self.inputsize
-            if self.outputsize < pds.outputsize:
-                dif = pds.outputsize - self.outputsize
-                padOUT = torch.zeros(dif, self.tensorOUT.shape[1]).to(
-                    self.device, non_blocking=True)
-                for i in range(self.tensorOUT.shape[1]):
-                    inp = [self.SymbolMap[self.pad_token]]*dif
-                    padOUT[:, i] = torch.tensor(inp)
-                self.tensorOUT = torch.cat(
-                    [torch.cat([self.tensorOUT, padOUT], dim=0), pds.tensorOUT], dim=1)
-                self.outputsize = pds.outputsize
-            elif self.outputsize > pds.outputsize:
-                dif = self.outputsize - pds.outputsize
-                padOUT = torch.zeros(dif, pds.tensorOUT.shape[1]).to(
-                    self.device, non_blocking=True)
-                for i in range(pds.tensorOUT.shape[1]):
-                    inp = [self.SymbolMap[self.pad_token]] * dif
-                    padOUT[:, i] = torch.tensor(inp)
-                self.tensorOUT = torch.cat(
-                    [self.tensorOUT, torch.cat([pds.tensorOUT, padOUT], dim=0)], dim=1)
-                pds.outputsize = self.outputsize
+#     def join(self, pds):
+#         if self.device != pds.device:
+#             pds.tensorIN = pds.tensorIN.to(self.device, non_blocking=True)
+#             pds.tensorOUT = pds.tensorOUT.to(self.device, non_blocking=True)
+#         if self.onehot:
+#             if self.inputsize < pds.inputsize:
+#                 dif = pds.inputsize - self.inputsize
+#                 padIN = torch.zeros(dif, len(self), len(self.SymbolMap)).to(
+#                     self.device, non_blocking=True)
+#                 for i in range(len(self)):
+#                     inp = [self.SymbolMap[self.pad_token]]*dif
+#                     padIN[:, i, :] = torch.nn.functional.one_hot(
+#                         torch.tensor(inp), num_classes=len(self.SymbolMap))
+#                 self.tensorIN = torch.cat(
+#                     [torch.cat([self.tensorIN, padIN], dim=0), pds.tensorIN], dim=1)
+#                 self.inputsize = pds.inputsize
+#             elif self.inputsize > pds.inputsize:
+#                 dif = self.inputsize - pds.inputsize
+#                 padIN = torch.zeros(dif, len(pds), len(self.SymbolMap)).to(
+#                     self.device, non_blocking=True)
+#                 for i in range(len(pds)):
+#                     inp = [self.SymbolMap[self.pad_token]] * dif
+#                     padIN[:, i, :] = torch.nn.functional.one_hot(
+#                         torch.tensor(inp), num_classes=len(self.SymbolMap))
+#                 self.tensorIN = torch.cat(
+#                     [self.tensorIN, torch.cat([pds.tensorIN, padIN], dim=0)], dim=1)
+#                 pds.inputsize = self.inputsize
+#             if self.outputsize < pds.outputsize:
+#                 dif = pds.outputsize - self.outputsize
+#                 padOUT = torch.zeros(dif, self.tensorOUT.shape[1], len(
+#                     self.SymbolMap)).to(self.device, non_blocking=True)
+#                 for i in range(self.tensorOUT.shape[1]):
+#                     inp = [self.SymbolMap[self.pad_token]]*dif
+#                     padOUT[:, i, :] = torch.nn.functional.one_hot(
+#                         torch.tensor(inp), num_classes=len(self.SymbolMap))
+#                 self.tensorOUT = torch.cat(
+#                     [torch.cat([self.tensorOUT, padOUT], dim=0), pds.tensorOUT], dim=1)
+#                 self.outputsize = pds.outputsize
+#             elif self.outputsize > pds.outputsize:
+#                 dif = self.outputsize - pds.outputsize
+#                 padOUT = torch.zeros(dif, pds.tensorOUT.shape[1], len(
+#                     self.SymbolMap)).to(self.device, non_blocking=True)
+#                 for i in range(pds.tensorOUT.shape[1]):
+#                     inp = [self.SymbolMap[self.pad_token]] * dif
+#                     padOUT[:, i, :] = torch.nn.functional.one_hot(
+#                         torch.tensor(inp), num_classes=len(self.SymbolMap))
+#                 self.tensorOUT = torch.cat(
+#                     [self.tensorOUT, torch.cat([pds.tensorOUT, padOUT], dim=0)], dim=1)
+#                 pds.outputsize = self.outputsize
+#         else:
+#             if self.inputsize < pds.inputsize:
+#                 dif = pds.inputsize - self.inputsize
+#                 padIN = torch.zeros(dif, len(self)).to(
+#                     self.device, non_blocking=True)
+#                 for i in range(len(self)):
+#                     inp = [self.SymbolMap[self.pad_token]]*dif
+#                     padIN[:, i] = torch.tensor(inp)
+#                 self.tensorIN = torch.cat(
+#                     [torch.cat([self.tensorIN, padIN], dim=0), pds.tensorIN], dim=1)
+#                 self.inputsize = pds.inputsize
+#             elif self.inputsize > pds.inputsize:
+#                 dif = self.inputsize - pds.inputsize
+#                 padIN = torch.zeros(dif, len(pds)).to(
+#                     self.device, non_blocking=True)
+#                 for i in range(len(pds)):
+#                     inp = [self.SymbolMap[self.pad_token]] * dif
+#                     padIN[:, i] = torch.tensor(inp)
+#                 self.tensorIN = torch.cat(
+#                     [self.tensorIN, torch.cat([pds.tensorIN, padIN], dim=0)], dim=1)
+#                 pds.inputsize = self.inputsize
+#             if self.outputsize < pds.outputsize:
+#                 dif = pds.outputsize - self.outputsize
+#                 padOUT = torch.zeros(dif, self.tensorOUT.shape[1]).to(
+#                     self.device, non_blocking=True)
+#                 for i in range(self.tensorOUT.shape[1]):
+#                     inp = [self.SymbolMap[self.pad_token]]*dif
+#                     padOUT[:, i] = torch.tensor(inp)
+#                 self.tensorOUT = torch.cat(
+#                     [torch.cat([self.tensorOUT, padOUT], dim=0), pds.tensorOUT], dim=1)
+#                 self.outputsize = pds.outputsize
+#             elif self.outputsize > pds.outputsize:
+#                 dif = self.outputsize - pds.outputsize
+#                 padOUT = torch.zeros(dif, pds.tensorOUT.shape[1]).to(
+#                     self.device, non_blocking=True)
+#                 for i in range(pds.tensorOUT.shape[1]):
+#                     inp = [self.SymbolMap[self.pad_token]] * dif
+#                     padOUT[:, i] = torch.tensor(inp)
+#                 self.tensorOUT = torch.cat(
+#                     [self.tensorOUT, torch.cat([pds.tensorOUT, padOUT], dim=0)], dim=1)
+#                 pds.outputsize = self.outputsize
 
 
 def getPreciseBatch(pds, idxToget):
