@@ -128,7 +128,7 @@ def network_collate(batch):
 
 
 class ProteinMSA(torch.utils.data.Dataset):
-    def __init__(self, fastaPath,  mapstring='ACDEFGHIKLMNPQRSTVWY-', transform=None, device=None, onehot=True, batch_first=False):
+    def __init__(self, fastaPath,  mapstring='ACDEFGHIKLMNPQRSTVWY-', transform=None, device=None, onehot=True, batch_first=False, protfilter=None):
         """
         Args:
             fastaPath (string): Path to the fasta file with annotations.
@@ -143,7 +143,12 @@ class ProteinMSA(torch.utils.data.Dataset):
         #     self.fitness = torch.tensor(list(map(get_fitness, ks)))
         def getprotname(k):
             return k.split(">")[-1].split("_")[0]
+        
         self.protlist = list(map(getprotname, ks))
+        if protfilter:
+            mask = protfilter(self.protlist)
+            self.protlist = np.array(self.protlist)[mask]
+            seq_nat = np.array(seq_nat)[mask, :]
         self.prot2pos = defaultdict(lambda x:None, {self.protlist[i]:i for i in range(len(self.protlist))})
         self.mapstring = mapstring
         self.SymbolMap = dict([(mapstring[i], i)
