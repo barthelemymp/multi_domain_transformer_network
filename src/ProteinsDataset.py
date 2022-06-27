@@ -11,7 +11,7 @@ from torch._six import string_classes
 import collections
 from torch.utils.data import Dataset, DataLoader
 from collections import defaultdict
-
+from scipy.cluster import hierarchy
 
 """
     >>> from scipy.cluster import hierarchy
@@ -308,12 +308,15 @@ class ProteinNetworkDataset(torch.utils.data.Dataset):
                     self.idx_in_clique[i,j] = self.clique[fam].prot2pos[prot]
                 else :
                     self.idx_in_clique[i,j] = -1
-                    
-        
+        self.DomainProfile = self.idx_in_clique != -1
+        self.DomainProfile = self.DomainProfile.numpy()
+        self.DomainProfileMatrix = (self.DomainProfile[:, None, :] != self.DomainProfile).sum(2)
+        Z = hierarchy.ward(DomainProfileMatrix)
+        self.proteinOrdering = hierarchy.leaves_list(hierarchy.optimal_leaf_ordering(Z, X))
     
     def __len__(self):
         return len(self.uniqueProt)
-
+    
 
     def __getitem__(self, idx):
         if torch.is_tensor(idx):
