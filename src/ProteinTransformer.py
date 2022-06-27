@@ -955,7 +955,7 @@ class ContextNetwork(nn.Module):
         ispresent = sizeTable!=0
         domainpresent = torch.sum(ispresent, axis=0)!=0 #filter domain present in the batch
         GlobalOut = [None]*self.nDom 
-        for targetDecode in range(len(self.transformer_list))):
+        for targetDecode in range(len(self.transformer_list)):
               if domainpresent[targetDecode]:
                 ind = torch.where(sizeTable[:,targetDecode] !=0)[0] #look for element of the batch with the targeted proteins to decode
                 domaintocast = domainpresent.clone()
