@@ -138,6 +138,7 @@ class ProteinMSA(torch.utils.data.Dataset):
         seq_nat, ks, q = read_fasta(fastaPath)
         self.onehot = onehot
         self.q = q
+        self.device=device
         # self.get_fitness = get_fitness
         # if get_fitness != None:
         #     self.fitness = torch.tensor(list(map(get_fitness, ks)))
@@ -159,19 +160,14 @@ class ProteinMSA(torch.utils.data.Dataset):
 
 
         self.nseq, self.len_protein = seq_nat.shape
-        self.padsequence = torch.tensor([self.q]*self.len_protein).to(self.device)
-#         seq_msa = torch.from_numpy(seq_msa)
-#         train_msa = one_hot(seq_msa, num_classes=num_res_type).cuda()
-#         train_msa = train_msa.view(train_msa.shape[0], -1).float()
 
-        # self.train_weight = torch.from_numpy(w_nat)
-        # self.train_weight = (self.train_weight / torch.sum(self.train_weight))
+            
+        self.padsequence = torch.tensor([self.q]*self.len_protein).to(self.device)
         self.gap = "-"
 
         if onehot:
             train_msa = torch.nn.functional.one_hot(
                 torch.from_numpy(seq_nat).long(), num_classes=self.q)
-                # self.sequences = train_msa.view(train_msa.shape[0], -1).float()
 
             self.sequences = train_msa.float()
         else:
@@ -183,21 +179,21 @@ class ProteinMSA(torch.utils.data.Dataset):
 
         self.batch_first = batch_first
 
+
         if not batch_first:
             self.sequences = torch.transpose(self.sequences, 0,1)
 
 
         if device != None:
-            # self.train_weight = self.train_weight.to(device, non_blocking=True)
             self.sequences = self.sequences.to(device, non_blocking=True)
-            # if get_fitness != None:
-            #     self.fitness = self.fitness.to(device, non_blocking=True)
+
 
     def __len__(self):
-        return self.sequences.shape[0]
-#         if self.batch_first:
-#         else:
-#             return self.tensorIN.shape[1]
+        
+        if self.batch_first:
+            return self.sequences.shape[0]
+        else:
+            return self.sequences.shape[1]
 
     # from the dataset, gives the data in the form it will be used by the NN
     def __getitem__(self, idx):
