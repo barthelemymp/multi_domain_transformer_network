@@ -311,9 +311,10 @@ class ProteinNetworkDataset(torch.utils.data.Dataset):
                     self.idx_in_clique[i,j] = -1
         self.DomainProfile = self.idx_in_clique != -1
         self.DomainProfile = self.DomainProfile.numpy()
-        self.DomainProfileMatrix = (self.DomainProfile[:, None, :] != self.DomainProfile).sum(2)
-        Z = hierarchy.ward(self.DomainProfileMatrix)
-        self.proteinOrdering = hierarchy.leaves_list(hierarchy.optimal_leaf_ordering(Z, self.DomainProfileMatrix))
+        self.DomainProfile = np.array(self.DomainProfile.cpu().numpy())
+        # self.DomainProfileMatrix = (self.DomainProfile[:, None, :] != self.DomainProfile).sum(2)
+        # Z = hierarchy.ward(self.DomainProfileMatrix)
+        # self.proteinOrdering = hierarchy.leaves_list(hierarchy.optimal_leaf_ordering(Z, self.DomainProfileMatrix))
     
     def __len__(self):
         return len(self.uniqueProt)
