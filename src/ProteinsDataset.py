@@ -273,7 +273,7 @@ class ProteinMSA(torch.utils.data.Dataset):
 
 
 class ProteinNetworkDataset(torch.utils.data.Dataset):
-    def __init__(self, pathClique_list, NameClique_list,  mapstring="-ACDEFGHIKLMNPQRSTVWY", transform=None, device=None, batch_first=False, returnIndex=False, onehot=True):
+    def __init__(self, pathClique_list, NameClique_list,  mapstring="-ACDEFGHIKLMNPQRSTVWY", transform=None, device=None, batch_first=False, returnIndex=False, onehot=True, protfilter=None):
 
         
         self.NameClique_list = NameClique_list
@@ -299,7 +299,7 @@ class ProteinNetworkDataset(torch.utils.data.Dataset):
         self.clique = {}
         unique = []
         for path, name in zip(pathClique_list, NameClique_list):
-            self.clique[name] = ProteinMSA(path,  mapstring=mapstring, transform=transform, device=device, onehot=onehot, batch_first=batch_first)
+            self.clique[name] = ProteinMSA(path,  mapstring=mapstring, transform=transform, device=device, onehot=onehot, batch_first=batch_first, protfilter=protfilter)
             unique +=self.clique[name].prot2pos.keys()
         self.uniqueProt = np.unique(unique)
         self.nDom = len(NameClique_list)

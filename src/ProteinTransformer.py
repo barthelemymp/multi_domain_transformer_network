@@ -932,7 +932,7 @@ class ContextNetwork(nn.Module):
             self.padDomains.append(torch.tensor([self.q]*self.len_protein).to(self.transformer_list[i].device))
             
     def encode(self,batch):
-        return [(transformer_list[i].encode(batch[i][0]), batch[i][1]) for i in range(self.nDom)]
+        return [(self.transformer_list[i].encode(batch[i][0]), batch[i][1]) for i in range(self.nDom)]
     
     def reconstruct_encoding(self, memory):
         reconstruct = [[self.encodedpadDomains[i] for i in range(self.nDom)] for j in range(self.bs)]
