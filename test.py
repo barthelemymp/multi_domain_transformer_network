@@ -69,26 +69,41 @@ trg_vocab_size = 22
 embedding_size = 55
 
 
-for fam in 
-src_position_embedding = PositionalEncoding(embedding_size, max_len=len_input,device=device)
-trg_position_embedding = PositionalEncoding(embedding_size, max_len=len_output, device=device)
+batch_size = 32
+num_heads = 1
+num_encoder_layers = 3
+num_decoder_layers = 3
+dropout = 0.10
+forward_expansion = 2048
+src_vocab_size = 22
+trg_vocab_size = 22
+embedding_size = 55
+
+translist = []
+for i in range(len(NameClique_list)):
+    src_pad_idx = pnd.clique[pnd.NameClique_list[i]].SymbolMap["<pad>"]
+    pnd.clique[pnd.NameClique_list[i]] 
+
+    src_position_embedding = PositionalEncoding(embedding_size, max_len=pnd.clique[pnd.NameClique_list[i]].len_protein,device=device)
+    trg_position_embedding = PositionalEncoding(embedding_size, max_len=pnd.clique[pnd.NameClique_list[i]].len_protein, device=device)
 
 
-model = Transformer(
-    embedding_size,
-    src_vocab_size,
-    trg_vocab_size,
-    src_pad_idx,
-    num_heads,
-    num_encoder_layers,
-    num_decoder_layers,
-    forward_expansion,
-    dropout,
-    src_position_embedding,
-    trg_position_embedding,
-    device,
-    onehot=onehot,
-).to(device)
+    model = Transformer(
+        embedding_size,
+        src_vocab_size,
+        trg_vocab_size,
+        src_pad_idx,
+        num_heads,
+        num_encoder_layers,
+        num_decoder_layers,
+        forward_expansion,
+        dropout,
+        src_position_embedding,
+        trg_position_embedding,
+        device,
+        onehot=onehot,
+    ).to(device)
+    translist.append(model)
 
 
-
+cn = ContextNetwork(translist, pnd.NameClique_list, 5)

@@ -608,6 +608,7 @@ class Transformer(nn.Module):
         self.device = device
         self.src_position_embedding = src_posEnc
         self.trg_position_embedding = trg_posEnc
+        
         self.embedding_size = embedding_size
         self.onehot = onehot
         if onehot==False:
@@ -903,12 +904,13 @@ class ContextNetwork(nn.Module):
     def __init__(
         self,
         transformer_list, NameClique_list, bs):
+        super(ContextNetwork, self).__init__()
         self.transformer_list = transformer_list
         self.NameClique_list = NameClique_list
         self.batch_first = transformer_list[0].batch_first
         self.nDom = len(NameClique_list)
         self.bs = bs
-        self.len_proteins = torch.tensor([trans.len_input for trans in transformer_list], device=device)
+        self.len_proteins = torch.tensor([trans.len_input for trans in transformer_list])
         if self.batch_first:
             self.batchdim=0
             self.lengthdim=1
@@ -919,17 +921,17 @@ class ContextNetwork(nn.Module):
         self.padDomains = []
         self.encodedpadDomains = []
         for i in range(self.nDom):
-            padsequence = torch.tensor([self.q]*self.len_protein).to(self.transformer_list[i].device)
+            padsequence = torch.tensor([self.transformer_list[i].src_pad_idx]*self.transformer_list[i].len_input).to(self.transformer_list[i].device)
             self.padDomains.append(padsequence)
             if self.batch_first:
                 padsequence = padsequence.unsqueeze(0)
             else:
                 padsequence = padsequence.unsqueeze(1)
-            self.encodedpadDomains.append(self.transformer_list[i].encode(padsequence).detach().copy())
+            self.encodedpadDomains.append(self.transformer_list[i].encode(padsequence).fill_(1.0).squeeze().detach().clone())
             
 
-        for i in range(self.nDom):
-            self.padDomains.append(torch.tensor([self.q]*self.len_protein).to(self.transformer_list[i].device))
+        # for i in range(self.nDom):
+        #     self.padDomains.append(torch.tensor([self.q]*self.len_protein).to(self.transformer_list[i].device))
             
     def encode(self,batch):
         return [(self.transformer_list[i].encode(batch[i][0]), batch[i][1]) for i in range(self.nDom)]
@@ -937,18 +939,19 @@ class ContextNetwork(nn.Module):
     def reconstruct_encoding(self, memory):
         reconstruct = [[self.encodedpadDomains[i] for i in range(self.nDom)] for j in range(self.bs)]
         memorymask_list = [[torch.ones(self.len_proteins[i]).to(torch.bool) for i in range(self.nDom)]for j in range(self.bs)]
-        sizeTable = torch.zeros((self.bs, self.nDom)).to(self.device)
+        sizeTable = torch.zeros((self.bs, self.nDom))
         for i in range(self.nDom):
             savedorder = memory[i][1]
-            for j in savedorder: #range(len(savedorder)):
+            for j in range(len(savedorder)): #range(len(savedorder)):
+                originalBatchPosition = savedorder[j]
                 if self.batch_first:
-                    reconstruct[j][i] = memory[i][0][j]
-                    memorymask_list[j][i].fill_(False)
-                    sizeTable[j,i] = memory[i][0][j].shape[1]
+                    reconstruct[originalBatchPosition][i] = memory[i][0][j]
+                    memorymask_list[originalBatchPosition][i].fill_(False)
+                    sizeTable[originalBatchPosition,i] = memory[i][0][j].shape[1]
                 else:
-                    reconstruct[j][i] = memory[i][0][:,j]
-                    memorymask_list[j][i].fill_(False)
-                    sizeTable[j,i] = memory[i][0][j].shape[0]
+                    reconstruct[originalBatchPosition][i] = memory[i][0][:,j]
+                    memorymask_list[originalBatchPosition][i].fill_(False)
+                    sizeTable[originalBatchPosition,i] = memory[i][0][j].shape[0]
         return reconstruct, sizeTable, memorymask_list
     
     def decodeAll(self,batch, reconstruct, sizeTable, memorymask_list):
@@ -964,7 +967,7 @@ class ContextNetwork(nn.Module):
                 memorymask = torch.stack([torch.cat([mask for mask, cond in zip(memorymask_list[i], domaintocast) if cond]) for i in ind], dim=self.batchdim)
                 trg  = torch.index_select(batch[targetDecode][0], self.batchdim, ind)   
                 out = self.transformer_list[targetDecode].decode(out, batch[targetDecode][0][:-1, :], memorymask)
-                GlobalOut[targetDecode] = (out, trg)
+                GlobalOut[targetDecode] = (out, trg[:-1, :])
         return GlobalOut
             
     def updatebs(self, data):

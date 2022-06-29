@@ -155,9 +155,8 @@ class ProteinMSA(torch.utils.data.Dataset):
         self.SymbolMap = dict([(mapstring[i], i)
                               for i in range(len(mapstring))])
         
-        self.SymbolMap["<pad>"] = self.q+1
-        self.q += 1
-
+        self.SymbolMap["<pad>"] = self.q
+        self.q+=1
 
         self.nseq, self.len_protein = seq_nat.shape
 
