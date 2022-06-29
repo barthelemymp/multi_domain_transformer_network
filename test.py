@@ -37,11 +37,11 @@ def myfilter(protname):
 pmsa1 = ProteinMSA("/Data/PFAM/MSAs/PF13857", onehot=False, protfilter =myfilter)
 pmsa2 = ProteinMSA("/Data/PFAM/MSAs/PF00023", onehot=False, protfilter =myfilter)
 pmsa3 = ProteinMSA("/Data/PFAM/MSAs/PF12796", onehot=False, protfilter =myfilter)
-pmsa4 = ProteinMSA("/Data/PFAM/MSAs/PF00069", onehot=False, protfilter =myfilter)
+#pmsa4 = ProteinMSA("/Data/PFAM/MSAs/PF00069", onehot=False, protfilter =myfilter)
 
 
 pathClique_list = ["/Data/PFAM/MSAs/PF13857", "/Data/PFAM/MSAs/PF00023", "/Data/PFAM/MSAs/PF12796", "/Data/PFAM/MSAs/PF00069"]#, "PF12796_rp35.txt"]
-NameClique_list= ["PF13857", "PF00023", "PF12796", "PF00069"]
+NameClique_list= ["PF13857", "PF00023", "PF12796"]#, "PF00069"]
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
