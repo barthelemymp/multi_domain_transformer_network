@@ -509,7 +509,6 @@ class PositionalEncoding(nn.Module):
         pe = pe.unsqueeze(0).transpose(0, 1)
         self.register_buffer('pe', pe)
         print(self.pe.device)
-        print(self.pe.device)
         
     def forward(self, x):
         r"""Inputs of forward function
@@ -677,7 +676,7 @@ class Transformer(nn.Module):
                 trg = self.embed_tokens(trg)
             else:
                 if self.sparseEmbed:
-                    print(trg.shape, self.embed_tokens.weight.shape)
+                    # print(trg.shape, self.embed_tokens.weight.shape)
                     trg = torch.sparse.mm(trg, self.embed_tokens.weight)
                 else:
                     trg = torch.matmul(trg, self.embed_tokens.weight)
@@ -729,7 +728,7 @@ class Transformer(nn.Module):
                 trg = self.embed_tokens(trg)
             else:
                 if self.sparseEmbed:
-                    print(trg.shape, self.embed_tokens.weight.shape)
+                    # print(trg.shape, self.embed_tokens.weight.shape)
                     trg = torch.sparse.mm(trg, self.embed_tokens.weight)
                 else:
                     trg = torch.matmul(trg, self.embed_tokens.weight)
@@ -970,6 +969,14 @@ class ContextNetwork(nn.Module):
                 GlobalOut[targetDecode] = (out, trg[:-1, :])
         return GlobalOut
             
+    
+    def train(self):
+        for trans in self.transformer_list:
+            trans.train()
+            
+    def eval(self):
+        for trans in self.transformer_list:
+            trans.eval()
     def updatebs(self, data):
         if self.batch_first:
             self.bs = data.shape[0]

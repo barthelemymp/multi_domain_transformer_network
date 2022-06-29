@@ -78,7 +78,7 @@ forward_expansion = 2048
 src_vocab_size = 22
 trg_vocab_size = 22
 embedding_size = 55
-
+lr = 0.00001
 translist = []
 for i in range(len(NameClique_list)):
     src_pad_idx = pnd.clique[pnd.NameClique_list[i]].SymbolMap["<pad>"]
@@ -107,3 +107,33 @@ for i in range(len(NameClique_list)):
 
 
 cn = ContextNetwork(translist, pnd.NameClique_list, 5)
+
+
+params = []
+for trans in cn.transformer_list:
+    params +=list(trans.parameters())
+
+optimizer = optim.AdamW(params, lr=0.0001, weight_decay=0)
+
+padIndex =pnd.clique[pnd.NameClique_list[0]].SymbolMap["<pad>"]
+onehot=False
+criterion = nn.CrossEntropyLoss(ignore_index=padIndex)
+criterion_raw = nn.CrossEntropyLoss(ignore_index=padIndex, reduction='none')
+num_epochs =10
+for epoch in range(num_epochs+1):
+    print(f"[Epoch {epoch} / {num_epochs}]")
+    cn.train()
+    lossesCE = []
+    for batch_idx, batch in enumerate(dl):
+#         cn.updatebs(batch)
+        optimizer.zero_grad()
+        memory = cn.encode(batch)
+        reconstruct, sizeTable, memorymask_list = cn.reconstruct_encoding(memory)
+        output = cn.decodeAll(batch, reconstruct, sizeTable, memorymask_list)
+        loss = NetworkLoss(output, criterion, onehot)
+        lossesCE.append(loss.item())
+        loss.backward()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1) 
+        optimizer.step()
+    mean_lossCETrain = sum(lossesCE) / len(lossesCE)
+    print(mean_lossCETrain)

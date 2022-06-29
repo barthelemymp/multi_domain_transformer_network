@@ -146,16 +146,16 @@ def LLLoss(batch,
 def NetworkLoss(networkOutput, 
                 criterion,
                 onehot):
-    loss = torch.tensor(0)
+    loss = torch.tensor(0.0)
     for i in range(len(networkOutput)):
-        out, trg = networkOutput[i]
+        out, target = networkOutput[i]
         out = out.reshape(-1, out.shape[2])
         if onehot:
             _, targets_Original = target.max(dim=2)
         else:
             targets_Original= target
         targets_Original = targets_Original[1:].reshape(-1)
-        loss += criterion(output, targets_Original)
+        loss += criterion(out, targets_Original.float())
     return loss
         
 

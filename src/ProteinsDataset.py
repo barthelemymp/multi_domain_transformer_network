@@ -79,7 +79,7 @@ def perdomain_collate(batch):
 
     ordermemory = torch.tensor(np.where([x!=None for x in batch])[0])
     
-    print("tensor")
+    # print("tensor")
     out = None
     elem = batch[0]
     if torch.utils.data.get_worker_info() is not None:
@@ -88,7 +88,7 @@ def perdomain_collate(batch):
         numel = sum(batch[i].numel() for i in ordermemory)
         storage = elem.storage()._new_shared(numel)
         out = elem.new(storage)
-    print(ordermemory)
+    # print(ordermemory)
     #print([batch[i] for i in ordermemory])
     return torch.stack([batch[i] for i in ordermemory], 1, out=out), ordermemory
 
@@ -96,10 +96,10 @@ def perdomain_collate(batch):
 
 
 def network_collate(batch):
-    print(batch, type(batch))
+    # print(batch, type(batch))
 
 
-    print("Sequence")
+    # print("Sequence")
     # check to make sure that the elements in batch have consistent size
     it = iter(batch)
     elem_size = len(next(it))
@@ -196,11 +196,11 @@ class ProteinMSA(torch.utils.data.Dataset):
 
     # from the dataset, gives the data in the form it will be used by the NN
     def __getitem__(self, idx):
-        print(idx)
+        # print(idx)
         if torch.is_tensor(idx):
             
             idx = idx.tolist()
-            print(idx)
+            # print(idx)
 #             if len(idx) > 1:
 #                 raise Exception("getitem recieved more than one value... change code")
         if idx<0:
