@@ -37,16 +37,16 @@ def myfilter(protname):
             
 
 
-pmsa1 = ProteinMSA("/Data/PFAM/MSAs/PF13857", onehot=False, protfilter =myfilter)
-pmsa2 = ProteinMSA("/Data/PFAM/MSAs/PF00023", onehot=False, protfilter =myfilter)
-pmsa3 = ProteinMSA("/Data/PFAM/MSAs/PF12796", onehot=False, protfilter =myfilter)
+pmsa1 = ProteinMSA("/Data/PFAM/MSAs/PF13857", onehot=False, protfilter =None)
+pmsa2 = ProteinMSA("/Data/PFAM/MSAs/PF00023", onehot=False, protfilter =None)
+pmsa3 = ProteinMSA("/Data/PFAM/MSAs/PF12796", onehot=False, protfilter =None)
 #pmsa4 = ProteinMSA("/Data/PFAM/MSAs/PF00069", onehot=False, protfilter =myfilter)
 
 
 pathClique_list = ["/Data/PFAM/MSAs/PF13857", "/Data/PFAM/MSAs/PF00023", "/Data/PFAM/MSAs/PF12796"]#, "/Data/PFAM/MSAs/PF00069"]#, "PF12796_rp35.txt"]
 NameClique_list= ["PF13857", "PF00023", "PF12796"]#, "PF00069"]
 
-np.sum([prot in pmsa1.protlist, prot in pmsa2.protlist, prot in pmsa3.protlist])
+# np.sum([prot in pmsa1.protlist, prot in pmsa2.protlist, prot in pmsa3.protlist])
 
 # NameClique_list_as_set = set(NameClique_list)
 # intersection = len(NameClique_list_as_set.intersection(uniref_archi['A0A075A3D5']))
