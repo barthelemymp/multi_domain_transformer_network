@@ -583,6 +583,27 @@ class StructuralAlignedEncoder(nn.Module):
     
     
     
+    
+    
+    
+    
+    
+    
+    
+""" 
+
+
+The Network stuff really starts here!
+
+
+"""
+    
+    
+    
+    
+    
+    
+    
 class Transformer(nn.Module):
     def __init__(
         self,
@@ -1000,7 +1021,7 @@ class ContextNetwork(nn.Module):
             return torch.stack(data, 0)
         
     def forward(self, reconstruct):
-        return "TO DO"
+        return "TO DO - Not clear what we want here: encode decode are already suffcient"
     
     
         

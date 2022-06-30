@@ -74,7 +74,9 @@ def read_fasta(fasta_path, alphabet='ACDEFGHIKLMNPQRSTVWY-', default_index=20, f
 
 def perdomain_collate(batch):
     # print("coucouperdombatc",batch, type(batch))
-    r"""Puts each data field into a tensor with first dimension batch size. 
+    r"""Collate for a specific domain. stack only the none None tensor and save their position in the batch in 
+    a second tensor called ordermemory that is also returned.
+    Puts each data field into a tensor with first dimension batch size. 
     Modified to get 1st dim as batch dim"""
 
     ordermemory = torch.tensor(np.where([x!=None for x in batch])[0])
@@ -97,9 +99,10 @@ def perdomain_collate(batch):
 
 
 
-
 def network_collate(batch):
-    # print(batch, type(batch))
+    r"""Collate for the complete network. separate the different domain and collate them separtely with perdomain_collate
+    Puts each data field into a tensor with first dimension batch size. 
+    Modified to get 1st dim as batch dim"""
 
 
     # print("Sequence")
@@ -135,8 +138,12 @@ class ProteinMSA(torch.utils.data.Dataset):
         """
         Args:
             fastaPath (string): Path to the fasta file with annotations.
-            transform (callable, optional): Optional transform to be applied
-                on a sample.
+            mapstring : list of our amino acids
+            device:
+            onehot:
+            batch_first:
+            protfilter: function that send a mask given the list of protein name
+            transform (callable, optional): Optional transform to be applied on a sample.
         """
         seq_nat, ks, q = read_fasta(fastaPath)
         self.onehot = onehot
@@ -233,6 +240,7 @@ class ProteinMSA(torch.utils.data.Dataset):
     #     # TO DO
 
     def terminate(self, sos="<sos>", eos="<eos>"):
+        """ädd eos and sos. Not tested yet !!!"""
         self.init_token = sos
         self.eos_token = eos
         if sos not in self.SymbolMap:
@@ -271,6 +279,7 @@ class ProteinMSA(torch.utils.data.Dataset):
 
 
 class ProteinNetworkDataset(torch.utils.data.Dataset):
+    """ Network of MSA. use tensor of indices to map one idx to the possible indices in the different ProteinMSA """
     def __init__(self, pathClique_list, NameClique_list,  mapstring="-ACDEFGHIKLMNPQRSTVWY", transform=None, device=None, batch_first=False, returnIndex=False, onehot=True, protfilter=None):
 
         

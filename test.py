@@ -7,59 +7,60 @@ from src.ProteinsDataset import *
 from src.MatchingLoss import *
 import pickle
 
-### Load the Uniref Graphs
-# G = nx.read_gml("/Data/PFAM/fullUniref90.gml")
+### Load the Uniref dict
+"""This dict send True if the protein is in uniref and False otherwise (take the uniprot name as keys)"""
 def def_value():
     return False
-
 file_to_read = open("/Data/PFAM/unirefname.pkl", "rb")
 uniref_dict = pickle.load(file_to_read)
 
+
+
+"""This dict send the list of domains present in the protein"""
 def def_valuegraph():
     return []
-
 file_to_read = open("/Data/PFAM/unirefarchitecture.pkl", "rb")
 uniref_archi = pickle.load(file_to_read)
 
-
+""" This fonction aims at creating a mask to filter the sequences that are not in Uniref
+ and that are not coaapearing with another domain of the clique. to do I load the msa a first time, it is
+ unefficient, I ll make it more sensible after"""
 def myfilter(protname):
     mask=[]
     for prot in protname:
         if uniref_dict[prot]==False:
             mask.append(False)
             print("not in uniref")
-        elif np.sum([prot in pmsa1.protlist, prot in pmsa2.protlist, prot in pmsa3.protlist])<2:
+        elif np.sum([prot in pmsa1.protlist, prot in pmsa2.protlist])<2:
             mask.append(False)
             print("alone")
         else:
             mask.append(True)
             print("ok")
     return np.array(mask)
-            
-
-
 pmsa1 = ProteinMSA("/Data/PFAM/MSAs/PF13857", onehot=False, protfilter =None)
 pmsa2 = ProteinMSA("/Data/PFAM/MSAs/PF00023", onehot=False, protfilter =None)
 pmsa3 = ProteinMSA("/Data/PFAM/MSAs/PF12796", onehot=False, protfilter =None)
 #pmsa4 = ProteinMSA("/Data/PFAM/MSAs/PF00069", onehot=False, protfilter =myfilter)
 
 
-pathClique_list = ["/Data/PFAM/MSAs/PF13857", "/Data/PFAM/MSAs/PF00023", "/Data/PFAM/MSAs/PF12796"]#, "/Data/PFAM/MSAs/PF00069"]#, "PF12796_rp35.txt"]
-NameClique_list= ["PF13857", "PF00023", "PF12796"]#, "PF00069"]
+pathClique_list = ["/Data/PFAM/MSAs/PF13857", "/Data/PFAM/MSAs/PF00023"]#, "/Data/PFAM/MSAs/PF12796"]#, "/Data/PFAM/MSAs/PF00069"]#, "PF12796_rp35.txt"]
+NameClique_list= ["PF13857", "PF00023"]#, "PF12796"]#, "PF00069"]
 
 # np.sum([prot in pmsa1.protlist, prot in pmsa2.protlist, prot in pmsa3.protlist])
-
 # NameClique_list_as_set = set(NameClique_list)
 # intersection = len(NameClique_list_as_set.intersection(uniref_archi['A0A075A3D5']))
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 pnd = ProteinNetworkDataset( pathClique_list, NameClique_list,  mapstring="-ACDEFGHIKLMNPQRSTVWY", transform=None, device=device, batch_first=False, returnIndex=False, onehot=False, protfilter=myfilter)
 dl = DataLoader(pnd, batch_size=50,
-                    shuffle=True, num_workers=0, collate_fn=prd.network_collate)
+                    shuffle=True, num_workers=0, collate_fn=network_collate)
 
 
-importlib.reload(ptr)
 
+
+# importlib.reload(ptr)
+# importlib.reload(prd)
 ### Transformer Network
 torch.set_num_threads(8)
 #pathtoFolder = "/home/Datasets/DomainsInter/processed/"
@@ -91,9 +92,9 @@ translist = []
 for i in range(len(NameClique_list)):
     src_pad_idx = pnd.clique[pnd.NameClique_list[i]].SymbolMap["<pad>"]
     pnd.clique[pnd.NameClique_list[i]] 
-    src_position_embedding = ptr.PositionalEncoding(embedding_size, max_len=pnd.clique[pnd.NameClique_list[i]].len_protein,device=device)
-    trg_position_embedding = ptr.PositionalEncoding(embedding_size, max_len=pnd.clique[pnd.NameClique_list[i]].len_protein, device=device)
-    model = ptr.Transformer(
+    src_position_embedding = PositionalEncoding(embedding_size, max_len=pnd.clique[pnd.NameClique_list[i]].len_protein,device=device)
+    trg_position_embedding = PositionalEncoding(embedding_size, max_len=pnd.clique[pnd.NameClique_list[i]].len_protein, device=device)
+    model = Transformer(
         embedding_size,
         src_vocab_size,
         trg_vocab_size,
@@ -111,7 +112,7 @@ for i in range(len(NameClique_list)):
     translist.append(model)
 
 
-cn = ptr.ContextNetwork(translist, pnd.NameClique_list, 50)
+cn = ContextNetwork(translist, pnd.NameClique_list, 50)
 
 
 params = []
@@ -146,5 +147,7 @@ for epoch in range(num_epochs+1):
 
 
 def shuu(t):
-    idx = torch.randperm(t.nelement())
-    return t.view(-1)[idx].view(t.size())
+    r=torch.randperm(t.shape[0])
+    c=torch.randperm(t.shape[1])
+    t=t[r][:,c]
+    return t
