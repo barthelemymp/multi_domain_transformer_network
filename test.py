@@ -68,13 +68,13 @@ torch.set_num_threads(3)
 # Model hyperparameters--> CAN BE CHANGED
 batch_size = 32
 num_heads = 1
-num_encoder_layers = 3
-num_decoder_layers = 3
+num_encoder_layers = 1
+num_decoder_layers = 1
 dropout = 0.10
-forward_expansion = 2048
+forward_expansion = 124
 src_vocab_size = 22
 trg_vocab_size = 22
-embedding_size = 55
+embedding_size = 15
 
 onehot=False
 batch_size = 32
@@ -124,7 +124,7 @@ padIndex =pnd.clique[pnd.NameClique_list[0]].SymbolMap["<pad>"]
 onehot=False
 criterion = nn.CrossEntropyLoss(ignore_index=padIndex)
 criterion_raw = nn.CrossEntropyLoss(ignore_index=padIndex, reduction='none')
-num_epochs =10
+num_epochs =100
 for epoch in range(num_epochs+1):
     print(f"[Epoch {epoch} / {num_epochs}]")
     cn.train()
@@ -142,3 +142,9 @@ for epoch in range(num_epochs+1):
         optimizer.step()
     mean_lossCETrain = sum(lossesCE) / len(lossesCE)
     print(mean_lossCETrain)
+
+
+
+def shuu(t):
+    idx = torch.randperm(t.nelement())
+    return t.view(-1)[idx].view(t.size())
