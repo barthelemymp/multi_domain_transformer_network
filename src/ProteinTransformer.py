@@ -952,7 +952,7 @@ class ContextNetwork(nn.Module):
                 else:
                     reconstruct[originalBatchPosition][i] = memory[i][0][:,j]
                     memorymask_list[originalBatchPosition][i].fill_(False)
-                    sizeTable[originalBatchPosition,i] = memory[i][0][j].shape[0]
+                    sizeTable[originalBatchPosition,i] = memory[i][0][:,j].shape[0]
         return reconstruct, sizeTable, memorymask_list
     
     def decodeAll(self,batch, reconstruct, sizeTable, memorymask_list):

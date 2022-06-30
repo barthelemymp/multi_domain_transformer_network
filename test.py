@@ -54,7 +54,7 @@ np.sum([prot in pmsa1.protlist, prot in pmsa2.protlist, prot in pmsa3.protlist])
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 pnd = ProteinNetworkDataset( pathClique_list, NameClique_list,  mapstring="-ACDEFGHIKLMNPQRSTVWY", transform=None, device=device, batch_first=False, returnIndex=False, onehot=False, protfilter=myfilter)
 dl = DataLoader(pnd, batch_size=50,
-                    shuffle=True, num_workers=0, collate_fn=network_collate)
+                    shuffle=True, num_workers=0, collate_fn=prd.network_collate)
 
 
 
@@ -90,9 +90,9 @@ translist = []
 for i in range(len(NameClique_list)):
     src_pad_idx = pnd.clique[pnd.NameClique_list[i]].SymbolMap["<pad>"]
     pnd.clique[pnd.NameClique_list[i]] 
-    src_position_embedding = PositionalEncoding(embedding_size, max_len=pnd.clique[pnd.NameClique_list[i]].len_protein,device=device)
-    trg_position_embedding = PositionalEncoding(embedding_size, max_len=pnd.clique[pnd.NameClique_list[i]].len_protein, device=device)
-    model = Transformer(
+    src_position_embedding = ptr.PositionalEncoding(embedding_size, max_len=pnd.clique[pnd.NameClique_list[i]].len_protein,device=device)
+    trg_position_embedding = ptr.PositionalEncoding(embedding_size, max_len=pnd.clique[pnd.NameClique_list[i]].len_protein, device=device)
+    model = ptr.Transformer(
         embedding_size,
         src_vocab_size,
         trg_vocab_size,
@@ -110,7 +110,7 @@ for i in range(len(NameClique_list)):
     translist.append(model)
 
 
-cn = ContextNetwork(translist, pnd.NameClique_list, 5)
+cn = ptr.ContextNetwork(translist, pnd.NameClique_list, 50)
 
 
 params = []
