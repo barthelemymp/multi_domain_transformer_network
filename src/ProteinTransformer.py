@@ -964,7 +964,7 @@ class ContextNetwork(nn.Module):
                 print(sizeTable[:,targetDecode])
                 ind = torch.where(sizeTable[:,targetDecode] !=0)[0] #look for element of the batch with the targeted proteins to decode
                 print(ind)
-                ind = int.to(self.transformer_list[targetDecode].device)
+                ind = ind.to(self.transformer_list[targetDecode].device)
                 domaintocast = domainpresent.clone()
                 domaintocast[targetDecode] =  False #create a mask for concatenating the memories
                 out = torch.stack([torch.cat([mem for mem, cond in zip(reconstruct[i], domaintocast) if cond]) for i in ind], dim=self.batchdim)
