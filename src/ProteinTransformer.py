@@ -970,7 +970,7 @@ class ContextNetwork(nn.Module):
                 trg  = torch.index_select(batch[targetDecode][0], self.batchdim, ind)  
                 print(out.shape, trg.shape)
                 out = self.transformer_list[targetDecode].decode(out, batch[targetDecode][0][:-1, :], memorymask)
-                GlobalOut[targetDecode] = (out, trg[:-1, :])
+                GlobalOut[targetDecode] = (out, trg[1:])
         return GlobalOut
             
     
