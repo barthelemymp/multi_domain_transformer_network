@@ -73,7 +73,7 @@ def read_fasta(fasta_path, alphabet='ACDEFGHIKLMNPQRSTVWY-', default_index=20, f
 
 
 def perdomain_collate(batch):
-    print("perdombatc",batch, type(batch))
+    print("coucouperdombatc",batch, type(batch))
     r"""Puts each data field into a tensor with first dimension batch size. 
     Modified to get 1st dim as batch dim"""
 
@@ -93,7 +93,7 @@ def perdomain_collate(batch):
     if len(ordermemory)>0:
         return torch.stack([batch[i] for i in ordermemory], 1, out=out), ordermemory
     else:
-        return [], []
+        return [], ordermemory
 
 
 
