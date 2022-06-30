@@ -154,8 +154,8 @@ def NetworkLoss(networkOutput,
             _, targets_Original = target.max(dim=2)
         else:
             targets_Original= target
-        targets_Original = targets_Original[1:].reshape(-1)
-        loss += criterion(out, targets_Original.float())
+        targets_Original = targets_Original.reshape(-1)
+        loss += criterion(out, targets_Original).cpu()
     return loss
         
 

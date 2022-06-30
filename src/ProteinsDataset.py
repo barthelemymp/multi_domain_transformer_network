@@ -73,7 +73,7 @@ def read_fasta(fasta_path, alphabet='ACDEFGHIKLMNPQRSTVWY-', default_index=20, f
 
 
 def perdomain_collate(batch):
-    print("coucouperdombatc",batch, type(batch))
+    # print("coucouperdombatc",batch, type(batch))
     r"""Puts each data field into a tensor with first dimension batch size. 
     Modified to get 1st dim as batch dim"""
 

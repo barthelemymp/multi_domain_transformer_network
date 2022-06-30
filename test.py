@@ -4,6 +4,7 @@ import numpy as np
 from itertools import *
 from src.ProteinTransformer import *
 from src.ProteinsDataset import *
+from src.MatchingLoss import *
 import pickle
 
 ### Load the Uniref Graphs
@@ -57,7 +58,7 @@ dl = DataLoader(pnd, batch_size=50,
                     shuffle=True, num_workers=0, collate_fn=prd.network_collate)
 
 
-
+importlib.reload(ptr)
 
 ### Transformer Network
 torch.set_num_threads(8)
@@ -133,6 +134,7 @@ for epoch in range(num_epochs+1):
         memory = cn.encode(batch)
         reconstruct, sizeTable, memorymask_list = cn.reconstruct_encoding(memory)
         output = cn.decodeAll(batch, reconstruct, sizeTable, memorymask_list)
+        output = [out for out in output if out !=None]
         loss = NetworkLoss(output, criterion, onehot)
         lossesCE.append(loss.item())
         loss.backward()
