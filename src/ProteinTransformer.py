@@ -701,6 +701,8 @@ class Transformer(nn.Module):
         return out
     
     def encode(self, src):
+        if src == []:
+            return None
         src_seq_length = src.shape[0]
         src_padding_mask = self.make_src_mask(src)
 
