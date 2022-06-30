@@ -26,10 +26,13 @@ def myfilter(protname):
     for prot in protname:
         if uniref_dict[prot]==False:
             mask.append(False)
-        elif len(uniref_archi[prot])<2:
+            print("not in uniref")
+        elif np.sum([prot in pmsa1.protlist, prot in pmsa2.protlist, prot in pmsa3.protlist])<2:
             mask.append(False)
+            print("alone")
         else:
             mask.append(True)
+            print("ok")
     return np.array(mask)
             
 
@@ -40,9 +43,13 @@ pmsa3 = ProteinMSA("/Data/PFAM/MSAs/PF12796", onehot=False, protfilter =myfilter
 #pmsa4 = ProteinMSA("/Data/PFAM/MSAs/PF00069", onehot=False, protfilter =myfilter)
 
 
-pathClique_list = ["/Data/PFAM/MSAs/PF13857", "/Data/PFAM/MSAs/PF00023", "/Data/PFAM/MSAs/PF12796", "/Data/PFAM/MSAs/PF00069"]#, "PF12796_rp35.txt"]
+pathClique_list = ["/Data/PFAM/MSAs/PF13857", "/Data/PFAM/MSAs/PF00023", "/Data/PFAM/MSAs/PF12796"]#, "/Data/PFAM/MSAs/PF00069"]#, "PF12796_rp35.txt"]
 NameClique_list= ["PF13857", "PF00023", "PF12796"]#, "PF00069"]
 
+np.sum([prot in pmsa1.protlist, prot in pmsa2.protlist, prot in pmsa3.protlist])
+
+# NameClique_list_as_set = set(NameClique_list)
+# intersection = len(NameClique_list_as_set.intersection(uniref_archi['A0A075A3D5']))
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 pnd = ProteinNetworkDataset( pathClique_list, NameClique_list,  mapstring="-ACDEFGHIKLMNPQRSTVWY", transform=None, device=device, batch_first=False, returnIndex=False, onehot=False, protfilter=myfilter)
@@ -68,7 +75,7 @@ src_vocab_size = 22
 trg_vocab_size = 22
 embedding_size = 55
 
-
+onehot=False
 batch_size = 32
 num_heads = 1
 num_encoder_layers = 3
@@ -83,11 +90,8 @@ translist = []
 for i in range(len(NameClique_list)):
     src_pad_idx = pnd.clique[pnd.NameClique_list[i]].SymbolMap["<pad>"]
     pnd.clique[pnd.NameClique_list[i]] 
-
     src_position_embedding = PositionalEncoding(embedding_size, max_len=pnd.clique[pnd.NameClique_list[i]].len_protein,device=device)
     trg_position_embedding = PositionalEncoding(embedding_size, max_len=pnd.clique[pnd.NameClique_list[i]].len_protein, device=device)
-
-
     model = Transformer(
         embedding_size,
         src_vocab_size,
@@ -125,7 +129,6 @@ for epoch in range(num_epochs+1):
     cn.train()
     lossesCE = []
     for batch_idx, batch in enumerate(dl):
-#         cn.updatebs(batch)
         optimizer.zero_grad()
         memory = cn.encode(batch)
         reconstruct, sizeTable, memorymask_list = cn.reconstruct_encoding(memory)

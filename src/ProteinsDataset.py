@@ -90,7 +90,10 @@ def perdomain_collate(batch):
         out = elem.new(storage)
     # print(ordermemory)
     #print([batch[i] for i in ordermemory])
-    return torch.stack([batch[i] for i in ordermemory], 1, out=out), ordermemory
+    if len(ordermemory)>0:
+        return torch.stack([batch[i] for i in ordermemory], 1, out=out), ordermemory
+    else:
+        return [], []
 
 
 
