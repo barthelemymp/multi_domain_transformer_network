@@ -53,7 +53,7 @@ NameClique_list= ["PF01799", "PF00111", "PF03450", "PF00941", "PF02738"]
 # NameClique_list_as_set = set(NameClique_list)
 # intersection = len(NameClique_list_as_set.intersection(uniref_archi['A0A075A3D5']))
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cpu")#torch.device("cuda" if torch.cuda.is_available() else "cpu")
 pnd = ProteinNetworkDataset( pathClique_list, NameClique_list,  mapstring="-ACDEFGHIKLMNPQRSTVWY", transform=None, device=device, batch_first=False, returnIndex=False, onehot=False, protfilter=myfilter)
 dl = DataLoader(pnd, batch_size=50,
                     shuffle=True, num_workers=0, collate_fn=network_collate)
