@@ -988,9 +988,9 @@ class ContextNetwork(nn.Module):
                 domaintocast[targetDecode] =  False #create a mask for concatenating the memories
                 out = torch.stack([torch.cat([mem for mem, cond in zip(reconstruct[i], domaintocast) if cond]) for i in ind], dim=self.batchdim)
                 memorymask = torch.stack([torch.cat([mask for mask, cond in zip(memorymask_list[i], domaintocast) if cond]) for i in ind], dim=self.batchdim)
-                print(batch[targetDecode][0].shape,  self.batchdim, ind)
+                #print(batch[targetDecode][0].shape,  self.batchdim, ind)
                 trg  = batch[targetDecode][0]
-                print(out.shape, trg.shape)
+                #print(out.shape, trg.shape)
                 out = self.transformer_list[targetDecode].decode(out, batch[targetDecode][0][:-1, :], memorymask)
                 GlobalOut[targetDecode] = (out, trg[1:])
         return GlobalOut
