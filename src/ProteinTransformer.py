@@ -603,12 +603,11 @@ The Network stuff really starts here!
     
     
     
-    
+ 
 class Transformer(nn.Module):
     def __init__(
         self,
         embedding_size,
-        src_vocab_size,
         trg_vocab_size,
         src_pad_idx,
         num_heads,
@@ -632,7 +631,7 @@ class Transformer(nn.Module):
         self.embedding_size = embedding_size
         self.onehot = onehot
         if onehot==False:
-            self.embed_tokens = nn.Embedding(src_vocab_size, embedding_size, sparse=sparseEmbed)
+            self.embed_tokens = nn.Embedding(trg_vocab_size, embedding_size, sparse=sparseEmbed)
         self.transformer = ProteinTransformer(
             embedding_size,
             num_heads,
@@ -1029,3 +1028,306 @@ class ContextNetwork(nn.Module):
         
         
     
+
+
+
+
+#### Conditional Transformer:
+
+class ConditionalTransformer(nn.Module):
+    def __init__(
+        self,
+        embedding_size,
+        n_cat,
+        trg_vocab_size,
+        src_pad_idx,
+        num_heads,
+        num_encoder_layers,
+        num_decoder_layers,
+        forward_expansion,
+        dropout,
+        src_posEnc,
+        trg_posEnc,
+        device,
+        onehot=True,
+        batch_first= False,
+        
+    ):
+        super(ConditionalTransformer, self).__init__()
+        self.device = device
+        self.src_position_embedding = src_posEnc
+        self.trg_position_embedding = trg_posEnc
+        
+        self.embedding_size = embedding_size
+        self.n_cat = n_cat
+        self.onehot = onehot
+        if onehot==False:
+            self.embed_tokens = nn.Embedding(trg_vocab_size, embedding_size)
+        self.embed_cat = nn.Embedding(n_cat, embedding_size)
+        self.transformer = ProteinTransformer(
+            embedding_size,
+            num_heads,
+            num_encoder_layers,
+            num_decoder_layers,
+            forward_expansion,
+            dropout,
+            device=device,
+            batch_first=batch_first,
+        )
+        self.fc_out = nn.Linear(embedding_size, trg_vocab_size, device = device)
+        self.trg_vocab_size =trg_vocab_size
+        self.dropout = nn.Dropout(dropout)
+        self.src_pad_idx = src_pad_idx
+        self.batch_first = batch_first
+        self.len_input = src_posEnc.lenprot
+        # self.encodecat = False
+        self.decodecat = True
+
+    # def encodecat(self, mybool):
+    #     self.encodecat = mybool
+    def decodecat(self, mybool):
+        self.decodecat = mybool
+        
+        
+    
+    def OneHot(self,in_tensor):
+        
+        seq_length, N = in_tensor.shape
+        out_one_hot = torch.zeros((in_tensor.shape[0], in_tensor.shape[1],self.embedding_size))
+        for i in range(seq_length):
+            for j in range(N):
+                c = in_tensor[i,j]
+                out_one_hot[i,j,c] = 1
+        return out_one_hot
+    
+    def make_src_mask(self, src):
+        """
+        If we have padded the source input (to be of the same size among the same batch I guess)
+        there is no need to do computation for them, so this function masks the 
+        padded parts.
+        src is sequence to the encoder 
+        """
+        padPos = self.src_pad_idx
+
+        src_mask = src[:,:].transpose(0, 1) == padPos
+
+        return src_mask.to(self.device)
+
+    def forward(self, src, trg, trgcat):
+        src_seq_length = src.shape[0]
+        trg_seq_length= trg.shape[0]
+        src_padding_mask = self.make_src_mask(src)
+
+        if self.onehot==False:
+            if len(src.shape)==2:
+                src = self.embed_tokens(src)
+            else:
+                src = torch.matmul(src, self.embed_tokens.weight)
+                # if self.sparseEmbed:
+                #     src = torch.sparse.mm(src, self.embed_tokens.weight)
+                # else:
+                    
+            if len(trg.shape)==2:
+                trg = self.embed_tokens(trg)
+            else:
+                trg = torch.matmul(trg, self.embed_tokens.weight)
+                # if self.sparseEmbed:
+                #     # print(trg.shape, self.embed_tokens.weight.shape)
+                #     trg = torch.sparse.mm(trg, self.embed_tokens.weight)
+                # else:
+            trg[0, :, :] = self.embed_cat(trgcat)
+                    
+                
+            
+        embed_src = self.src_position_embedding.forward(src)
+        embed_trg = self.trg_position_embedding.forward(trg)
+
+
+        
+        trg_mask = self.transformer.generate_square_subsequent_mask(trg_seq_length).to(
+            self.device
+        )
+
+        out = self.transformer(
+            embed_src,
+            embed_trg,
+            src_key_padding_mask=src_padding_mask,
+            tgt_mask=trg_mask,
+        )
+        out = self.fc_out(out)
+        return out
+    
+    def encode(self, src):
+        if src == []:
+            return None
+        src_seq_length = src.shape[0]
+        src_padding_mask = self.make_src_mask(src)
+
+        if self.onehot==False:
+            if len(src.shape)==2:
+                src = self.embed_tokens(src)
+            else:
+                src = torch.matmul(src, self.embed_tokens.weight)
+                # if self.sparseEmbed:
+                #     src = torch.sparse.mm(src, self.embed_tokens.weight)
+                # else:
+                    
+                    
+        embed_src = self.src_position_embedding.forward(src)
+        memory = self.transformer.encode(
+                    embed_src,
+                    src_key_padding_mask=src_padding_mask)
+        return memory
+        
+        
+    def decode(self, memory, trg, memorymask, trgcat):
+        trg_seq_length= trg.shape[0]
+
+        if self.onehot==False:
+            if len(trg.shape)==2:
+                trg = self.embed_tokens(trg)
+            else:
+                trg = torch.matmul(trg, self.embed_tokens.weight)
+                # if self.sparseEmbed:
+                #     # print(trg.shape, self.embed_tokens.weight.shape)
+                #     trg = torch.sparse.mm(trg, self.embed_tokens.weight)
+                # else:
+            trg[0, :, :] = self.embed_cat(trgcat)
+                    
+                
+        embed_trg = self.trg_position_embedding.forward(trg)
+        trg_mask = self.transformer.generate_square_subsequent_mask(trg_seq_length).to(
+            self.device
+        )
+
+        out = self.transformer.decode(
+            memory,
+            embed_trg,
+            tgt_mask=trg_mask,
+        )
+        out = self.fc_out(out)
+        return out
+    
+    def sample(self, inp, max_len, nsample=1, method="simple"):
+        """ sample output protein given input proteins:
+                -nsample only relevant if inp consist of one sample.
+                -method = simple means that the output is sampled using conditional distrib but we can not backpropagate trough the samples
+                -method = gumbel: the sample are backpropagable.
+            return samples sequence in the onehot format in very case"""
+        if self.onehot:
+            sos = inp[0,0,:]
+            eos = inp[-1,0,:]
+        else:
+            sos = torch.nn.functional.one_hot(inp[0,0], num_classes=self.trg_vocab_size)
+            eos = torch.nn.functional.one_hot(inp[-1,0], num_classes=self.trg_vocab_size)
+        if inp.shape[1]!=1:
+            nsample=inp.shape[1]
+            inp_repeted = inp
+        else:
+            if self.onehot:
+                inp_repeted = inp[:,0,:].unsqueeze(1).repeat(1, nsample, 1)
+            else:
+                inp_repeted = inp[:,0].unsqueeze(1).repeat(1, nsample)
+                
+        
+        if method=="simple":
+            outputs = torch.zeros(max_len, nsample, self.trg_vocab_size).to(self.device)
+            outputs[0,:,:] = sos.unsqueeze(0).repeat(nsample, 1)
+            for i in range(1,max_len):
+                output = self.forward(inp_repeted, outputs[:i])
+                logits = output.reshape(-1,self.trg_vocab_size)
+                best_guess = torch.distributions.Categorical(logits=logits).sample()
+                best_guess = torch.nn.functional.one_hot(best_guess, num_classes=self.trg_vocab_size).reshape(-1,nsample,self.trg_vocab_size)
+                outputs[i,:,:]= best_guess[-1,:,:]
+
+            outputs[-1,:,:] = eos.unsqueeze(0).repeat(nsample, 1)
+
+            return outputs
+
+        if method=="gumbel":
+            outputs = torch.zeros(max_len, nsample, self.trg_vocab_size).to(self.device)
+            outputs[0,:,:] = sos.unsqueeze(0).repeat(nsample, 1)
+            for i in range(1,max_len):
+                output = self.forward(inp_repeted, outputs[:i])
+                best_guess = torch.nn.functional.gumbel_softmax(output, hard=True, dim=2)
+                outputs[i,:,:]= best_guess[-1,:,:]
+
+            outputs[-1,:,:] = eos.unsqueeze(0).repeat(nsample, 1)
+            return outputs
+            
+        if method=="bestguess":
+            outputs = torch.zeros(max_len, nsample, self.trg_vocab_size).to(self.device)
+            outputs[0,:,:] = sos.unsqueeze(0).repeat(nsample, 1)
+            for i in range(1,max_len):
+                with torch.no_grad():
+                    output = self.forward(inp_repeted, outputs[:i,:,:])
+                best_guess = output.argmax(2)[-1, :].item()
+                outputs[i,:,:]= torch.nn.functional.one_hot(best_guess, num_classes=self.trg_vocab_size)
+
+            outputs[-1,:,:] = eos.unsqueeze(0).repeat(nsample, 1)
+            return outputs
+        
+    def pseudosample(self, inp, target, nsample=1, method="simple"):
+        if self.onehot:
+            sos = inp[0,0,:]
+            eos = inp[-1,0,:]
+        else:
+            sos = torch.nn.functional.one_hot(inp[0,0], num_classes=self.trg_vocab_size)
+            eos = torch.nn.functional.one_hot(inp[-1,0], num_classes=self.trg_vocab_size)
+        if inp.shape[1]!=1:
+            nsample=inp.shape[1]
+        else:
+            if self.onehot:
+                inp_repeted = inp[:,0,:].unsqueeze(1).repeat(1, nsample, 1)
+            else:
+                inp_repeted = inp[:,0].unsqueeze(1).repeat(1, nsample)
+                
+            
+        
+
+        if method=="simple":
+            if self.onehot:
+                outputs = torch.zeros(target.shape[0], nsample, target.shape[2]).to(self.device)
+                outputs[0,:,:] = sos.unsqueeze(0).repeat(nsample, 1)
+                output = self.forward(inp, target[:-1, :])
+                prob = torch.nn.functional.softmax(output.clone().detach(),dim=2).reshape(-1,inp.shape[2])
+                best_guess = torch.multinomial(prob, nsample, replacement=True)
+                best_guess = torch.nn.functional.one_hot(best_guess, num_classes=self.trg_vocab_size).reshape(-1,nsample,self.trg_vocab_size)
+                outputs[1:,:,:]= best_guess
+                outputs[-1,:,:] = eos.unsqueeze(0).repeat(nsample, 1)
+            else:
+                print("todo")
+            return outputs
+
+                
+            
+        if method=="gumbel":
+            if self.onehot:
+                outputs = torch.zeros(target.shape[0], nsample, target.shape[2]).to(self.device)
+                outputs[0,:,:] = sos.unsqueeze(0).repeat(nsample, 1)
+    
+                output = self.forward(inp, target[:-1, :])
+                best_guess = torch.nn.functional.gumbel_softmax(output, hard=True, dim=2)
+                outputs[1:,:,:]= best_guess
+                outputs[-1,:,:] = eos.unsqueeze(0).repeat(nsample, 1)
+            else:
+                outputs = torch.zeros(target.shape[0], nsample, self.trg_vocab_size).to(self.device)
+                outputs[0,:,:] = sos.unsqueeze(0).repeat(nsample, 1)
+                output = self.forward(inp, target[:-1, :])
+                best_guess = torch.nn.functional.gumbel_softmax(output, hard=True, dim=2)
+                outputs[1:,:,:] = best_guess
+                outputs[-1,:,:] = eos.unsqueeze(0).repeat(nsample, 1)
+
+            return outputs
+            
+        if method=="bestguess":
+            outputs = torch.zeros(target.shape[0], 1, target.shape[2]).to(self.device)
+            outputs[0,:,:] = sos.unsqueeze(0).repeat(1, 1)
+
+            with torch.no_grad():
+                output = self.forward(inp_repeted, target[:-1, :])
+            best_guess = output.argmax(2)[-1, :].item()
+            outputs[1:,:,:]= torch.nn.functional.one_hot(best_guess, num_classes=self.trg_vocab_size)
+
+            outputs[-1,:,:] = eos.unsqueeze(0).repeat(nsample, 1)
+            return outputs

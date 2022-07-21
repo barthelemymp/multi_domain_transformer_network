@@ -6,11 +6,8 @@ from src.ProteinTransformer import *
 from src.ProteinsDataset import *
 from src.MatchingLoss import *
 import pickle
-
-
-if use_tpu:
-    import torch_xla
-    import torch_xla.core.xla_model as xm
+import torch_xla
+import torch_xla.core.xla_model as xm
 
 ### Load the Uniref dict
 """This dict send True if the protein is in uniref and False otherwise (take the uniprot name as keys)"""
@@ -19,8 +16,6 @@ def def_value():
 
 file_to_read = open("/Data/PFAM/unirefname.pkl", "rb")
 uniref_dict = pickle.load(file_to_read)
-
-
 
 """This dict send the list of domains present in the protein"""
 def def_valuegraph():
@@ -63,10 +58,9 @@ NameClique_list= ["PF01799", "PF00111", "PF03450", "PF00941", "PF02738"]
 # intersection = len(NameClique_list_as_set.intersection(uniref_archi['A0A075A3D5']))
 
 #device = torch.device("cpu")#
-if use_tpu:
-    device=xm.xla_device()
-else:
-    device =torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+device=xm.xla_device()
+
 pnd = ProteinNetworkDataset( pathClique_list, NameClique_list,  mapstring="-ACDEFGHIKLMNPQRSTVWY", transform=None, device=device, batch_first=False, returnIndex=False, onehot=False, protfilter=myfilter)
 dl = DataLoader(pnd, batch_size=50,
                     shuffle=True, num_workers=0, collate_fn=network_collate)
@@ -105,7 +99,7 @@ src_vocab_size = 22
 trg_vocab_size = 22
 embedding_size = 55
 lr = 0.00001
-#translist = []
+# translist = []
 translist = nn.ModuleList()
 for i in range(len(NameClique_list)):
     src_pad_idx = pnd.clique[pnd.NameClique_list[i]].SymbolMap["<pad>"]
@@ -159,6 +153,8 @@ for epoch in range(num_epochs+1):
         loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1) 
         optimizer.step()
+        xm.mark_step()
+
     mean_lossCETrain = sum(lossesCE) / len(lossesCE)
     print(mean_lossCETrain)
 
