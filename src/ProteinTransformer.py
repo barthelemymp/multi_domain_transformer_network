@@ -870,9 +870,6 @@ class Transformer(nn.Module):
             else:
                 inp_repeted = inp[:,0].unsqueeze(1).repeat(1, nsample)
                 
-            
-        
-
         if method=="simple":
             if self.onehot:
                 outputs = torch.zeros(target.shape[0], nsample, target.shape[2]).to(self.device)
