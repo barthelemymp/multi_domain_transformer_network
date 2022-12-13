@@ -278,3 +278,26 @@ def sample_dataset(pds, model, nrepet=1, pathtosave=None):
         writefasta(torch.cat([torch.nn.functional.one_hot(pds_sample.tensorIN, num_classes=model.trg_vocab_size), torch.nn.functional.one_hot(pds_sample.tensorOUT, num_classes=model.trg_vocab_size)]), path, mapstring =pds_sample.mapstring)
         path = pathtosave+"_2.faa"
         writefasta(torch.nn.functional.one_hot(pds_sample.tensorOUT, num_classes=model.trg_vocab_size), path, mapstring =pds_sample.mapstring)
+
+
+
+
+class wandblogger():
+    def __init__(self, entity="barthelemymp") -> None:
+        import wandb
+        wandb.login()
+        self.entity = entity
+        self.dict = {}
+
+    def initRun(self, project, config_dict):
+        wandb.init(project=project, entity=self.entity)
+        wandb.config.update(config_dict) 
+
+    def reset(self):
+        self.dict = {}
+    def log(self,):
+        wandb.log(self.dict)
+
+    
+
+

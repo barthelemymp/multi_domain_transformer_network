@@ -12,7 +12,8 @@ import collections
 from torch.utils.data import Dataset, DataLoader
 from collections import defaultdict
 from scipy.cluster import hierarchy
-
+from scipy.spatial.distance import squareform
+import random
 """
     >>> from scipy.cluster import hierarchy
     >>> rng = np.random.default_rng()
@@ -321,7 +322,7 @@ class ProteinNetworkDataset(torch.utils.data.Dataset):
                 else :
                     self.idx_in_clique[i,j] = -1
         self.DomainProfile = self.idx_in_clique != -1
-        # self.DomainProfile = np.array(self.DomainProfile.cpu().numpy())
+        self.DomainProfile = np.array(self.DomainProfile.cpu().numpy())
         # self.DomainProfileMatrix = (self.DomainProfile[:, None, :] != self.DomainProfile).sum(2)
         # Z = hierarchy.ward(self.DomainProfileMatrix)
         # self.proteinOrdering = hierarchy.leaves_list(hierarchy.optimal_leaf_ordering(Z, self.DomainProfileMatrix))
@@ -422,10 +423,11 @@ class ProteinNetworkDataset(torch.utils.data.Dataset):
     #             pds.outputsize = self.outputsize
 
 
-
-def hierarchical_ordering(bucket):
-        self.DomainProfile = np.array(self.DomainProfile.cpu().numpy())
-        DomainProfileMatrix = (DomainProfile[:, None, :] != DomainProfile).sum(2)
+# self.DomainProfile in dataset bool of size (M, nDom)
+def hierarchical_ordering(bucketProfile):
+        bucketProfile = np.array(bucketProfile)
+        DomainProfileMatrix = (bucketProfile[:, None, :] != bucketProfile).sum(2)
+        DomainProfileMatrix = squareform(DomainProfileMatrix)
         Z = hierarchy.ward(DomainProfileMatrix)
         proteinOrdering = hierarchy.leaves_list(hierarchy.optimal_leaf_ordering(Z, DomainProfileMatrix))
         return proteinOrdering
@@ -436,62 +438,22 @@ def hierarchical_ordering(bucket):
 ### sort_key is a function giving the numerical value to use for sorting (not working for us)
 
 
-class DomainArchitectureBucketIterator(Iterator):
-    """Defines an iterator that batches examples of similar lengths together.
-    Minimizes amount of padding needed while producing freshly shuffled
-    batches for each new epoch. See pool for the bucketing procedure used.
-    """
-
-    def create_batches(self): 
-        if self.sort:
-            self.batches = batch(self.data(), self.batch_size,
-                                  self.batch_size_fn)
-        else:
-            self.batches = pool(self.data(), self.batch_size,
-                                self.sort_key, self.batch_size_fn,
-                                random_shuffler=self.random_shuffler,
-                                shuffle=self.shuffle,
-                                sort_within_batch=self.sort_within_batch)
-
-
-def batch(data, batch_size, batch_size_fn=None):
-    """Yield elements from data in chunks of batch_size."""
-    if batch_size_fn is None:
-        def batch_size_fn(new, count, sofar):
-            return count
-    minibatch, size_so_far = [], 0
-    for ex in data:
-        minibatch.append(ex)
-        size_so_far = batch_size_fn(ex, len(minibatch), size_so_far)
-        if size_so_far == batch_size:
-            yield minibatch
-            minibatch, size_so_far = [], 0
-        elif size_so_far > batch_size:
-            yield minibatch[:-1]
-            minibatch, size_so_far = minibatch[-1:], batch_size_fn(ex, 1, 0)
-    if minibatch:
-        yield minibatch
-
-
-def pool(data, batch_size, key, batch_size_fn=lambda new, count, sofar: count,
-          random_shuffler=None, shuffle=False, sort_within_batch=False):
-    """Sort within buckets, then batch, then shuffle batches.
-    Partitions data into chunks of size 100*batch_size, sorts examples within
-    each chunk using sort_key, then batch these examples and shuffle the
-    batches.
-    """
-    if random_shuffler is None:
-        random_shuffler = random.shuffle
-    for p in batch(data, batch_size * 100, batch_size_fn):
-        p_batch = batch(sorted(p, key=key), batch_size, batch_size_fn) \
-            if sort_within_batch \
-            else batch(p, batch_size, batch_size_fn)
-        if shuffle:
-            for b in random_shuffler(list(p_batch)):
-                yield b
-        else:
-            for b in list(p_batch):
-                yield b
+def DomainArchitectureBucketLoader(pnd, chunk_size=15, batch_size=32, collate_fn=network_collate):
+    train_list = list(pnd)
+    trainProfile = [pnd.DomainProfile[i, :] for i in range(pnd.DomainProfile.shape[0])]
+    c = list(zip(train_list, trainProfile))
+    random.shuffle(c)
+    train_list, trainProfile = zip(*c)
+    # Create pools and each has a size of batch_size*100
+    pools = [train_list[i:i+ batch_size*chunk_size] for i in range(0, len(train_list), batch_size*chunk_size)]
+    pools_Profile = [trainProfile[i:i+ batch_size*chunk_size] for i in range(0, len(trainProfile), batch_size*chunk_size)]
+    pools_ordering = [hierarchical_ordering(bucketProfile) for bucketProfile in pools_Profile]
+    pools = [[chunk[i] for i in order] for chunk, order in zip(pools, pools_ordering)]
+    pools = sum(pools, [])
+    bucket_dataloader = DataLoader(pools, batch_size=batch_size,
+                            shuffle=False,  # shuffle is set to False to keep the order  
+                            collate_fn=network_collate)
+    return bucket_dataloader
 
 
 def default_collate(batch):
